@@ -7,9 +7,9 @@ make mailing list moderation easier.
 from BeautifulSoup import BeautifulSoup
 from urlparse import urldefrag, urljoin, urlparse
 
-from gevent.pool import Pool
 import gevent
 from gevent import monkey
+from gevent.queue import JoinableQueue
 
 monkey.patch_all()
 
@@ -47,9 +47,10 @@ else:
 
 START_URL = 'http://www.erfworld.com/wiki/index.php'
 MAX_DEPTH = 1
+NO_OF_WORKERS = 10
 
 
-def job(url, depth_left, pool):
+def job(url, depth_left, queue):
     """
     Fetch a url, process it and add any urls in it to the job queue.
     """
@@ -69,7 +70,7 @@ def job(url, depth_left, pool):
             abs_url = parse_rel_url(rel_url, url)
             if abs_url not in seen_urls:
                 seen_urls.add(abs_url)
-                pool.spawn(job, abs_url, depth_left-1, pool)
+                queue.put((abs_url, depth_left-1))
 
 
 def parse_rel_url(rel_url, url):
@@ -120,10 +121,20 @@ def get_page_links(page_soup):
             rel_urls.append(href)
     return rel_urls
 
+def job_worker(queue):
+    while True:
+        url, depth_left = queue.get()
+        try:
+            job(url, depth_left, queue)
+        finally:
+            queue.task_done()
   
-# TODO: Currently blocks because of Greenlets not dying -
-# implement proper queueing
 seen_urls = set((START_URL,))
-pool = Pool(10)
-pool.spawn(job, START_URL, MAX_DEPTH, pool)
-#pool.join()
+job_queue = JoinableQueue()
+job_queue.put((START_URL, MAX_DEPTH))
+
+for i in range(NO_OF_WORKERS):
+    gevent.spawn(job_worker, job_queue)
+
+job_queue.join()
+
