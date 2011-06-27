@@ -112,7 +112,7 @@ def process_page_soup(page_soup, url):
 def get_unseen_urls_from_page(page_soup, url):
     """
     Given page_soup, finds all urls in it and returns any that have not been
-    seen before.
+    seen before. Returned urls are absolute.
     """
     global seen_urls
 
@@ -128,7 +128,7 @@ def get_unseen_urls_from_page(page_soup, url):
 
 def get_page_links(page_soup):
     """
-    Return all urls on a page if they haven't already been seen.
+    Return all urls on a page.
     """
     rel_urls = []
     for link in page_soup.findAll('a'):
