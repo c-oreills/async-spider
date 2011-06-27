@@ -62,7 +62,7 @@ def job(url, depth_left, pool):
     page_soup = BeautifulSoup(data)
     process_page_soup(page_soup, url)
 
-    if depth_left >= 0:
+    if depth_left > 0:
         rel_urls = get_page_links(page_soup)
 
         for rel_url in rel_urls:
