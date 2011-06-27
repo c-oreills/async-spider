@@ -45,11 +45,9 @@ else:
         PROFANITIES.extend(PROFANITIES_LIST)
 
 START_URL = 'http://www.erfworld.com/wiki/index.php'
-MAX_DEPTH = 1
-NO_OF_WORKERS = 10
 
 
-def fetch_and_process_url(url, depth_left):
+def fetch_and_process_url(url, depth_left, seen_urls):
     """
     Fetch a url, process it and return any urls in it.
     """
@@ -61,14 +59,14 @@ def fetch_and_process_url(url, depth_left):
     process_page_soup(page_soup, url)
 
     if depth_left > 0:
-        unseen_urls = get_unseen_urls_from_page(page_soup, url)
+        unseen_urls = get_unseen_urls_from_page(page_soup, url, seen_urls)
         return unseen_urls
 
-def job(url, depth_left, queue):
+def job(url, depth_left, queue, seen_urls):
     """
     Handle fetching and processing of given url and add results to job queue.
     """
-    unseen_urls = fetch_and_process_url(url, depth_left)
+    unseen_urls = fetch_and_process_url(url, depth_left, seen_urls)
     if unseen_urls is not None:
         for url in unseen_urls:
             queue.put((url, depth_left-1))
@@ -109,13 +107,11 @@ def process_page_soup(page_soup, url):
         cprint('%s found in %s' % (', '.join(bad_words), url), 'white', 'on_red')
         # Extension: Add this to results list to email to moderator
 
-def get_unseen_urls_from_page(page_soup, url):
+def get_unseen_urls_from_page(page_soup, url, seen_urls):
     """
     Given page_soup, finds all urls in it and returns any that have not been
     seen before. Returned urls are absolute.
     """
-    global seen_urls
-
     rel_urls = get_page_links(page_soup)
     unseen_urls = []
 
@@ -138,23 +134,27 @@ def get_page_links(page_soup):
             rel_urls.append(href)
     return rel_urls
 
-def job_worker(queue):
+def job_worker(queue, seen_urls):
     """
     Loop forever, taking jobs from the queue and executing them.
     """
     while True:
         url, depth_left = queue.get()
         try:
-            job(url, depth_left, queue)
+            job(url, depth_left, queue, seen_urls)
         finally:
             queue.task_done()
   
-seen_urls = set((START_URL,))
-job_queue = JoinableQueue()
-job_queue.put((START_URL, MAX_DEPTH))
+def spider(start_url, max_depth=1, no_of_workers=10):
+    seen_urls = set((start_url,))
+    job_queue = JoinableQueue()
+    job_queue.put((start_url, max_depth))
 
-for i in range(NO_OF_WORKERS):
-    gevent.spawn(job_worker, job_queue)
+    for i in range(no_of_workers):
+        gevent.spawn(job_worker, job_queue, seen_urls)
 
-job_queue.join()
+    job_queue.join()
 
+
+if __name__ == '__main__':
+    spider(START_URL)
