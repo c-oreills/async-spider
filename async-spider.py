@@ -46,7 +46,6 @@ else:
         PROFANITIES.extend(PROFANITIES_LIST)
 
 START_URL = 'http://www.erfworld.com/wiki/index.php'
-START_URL = 'http://docs.python.org/library/index.html'
 MAX_DEPTH = 1
 
 
