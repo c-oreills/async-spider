@@ -47,7 +47,7 @@ else:
 START_URL = 'http://www.erfworld.com/wiki/index.php'
 
 
-def fetch_and_process_url(url, depth_left, seen_urls):
+def fetch_and_process_url(url, depth_left, seen_urls, page_fn):
     """
     Fetch a url, process it and return any urls in it.
     """
@@ -56,17 +56,17 @@ def fetch_and_process_url(url, depth_left, seen_urls):
         return
 
     page_soup = BeautifulSoup(data)
-    process_page_soup(page_soup, url)
+    page_fn(page_soup, url)
 
     if depth_left > 0:
         unseen_urls = get_unseen_urls_from_page(page_soup, url, seen_urls)
         return unseen_urls
 
-def job(url, depth_left, queue, seen_urls):
+def job(url, depth_left, queue, seen_urls, page_fn):
     """
     Handle fetching and processing of given url and add results to job queue.
     """
-    unseen_urls = fetch_and_process_url(url, depth_left, seen_urls)
+    unseen_urls = fetch_and_process_url(url, depth_left, seen_urls, page_fn)
     if unseen_urls is not None:
         for url in unseen_urls:
             queue.put((url, depth_left-1))
@@ -93,19 +93,6 @@ def fetch_url(url):
     else:
         cprint('  %s: %s bytes: %r' % (url, len(data), data[:50]), 'cyan')
         return data
-
-def process_page_soup(page_soup, url):
-    """
-    Process the web page as needed.
-    In this example, the page is scanned for profanities.
-    """
-    # Strip out all tags, leaving only text
-    page_text = ''.join(page_soup.findAll(text=True))
-
-    bad_words = [word for word in PROFANITIES if word in page_text.lower()]
-    if bad_words:
-        cprint('%s found in %s' % (', '.join(bad_words), url), 'white', 'on_red')
-        # Extension: Add this to results list to email to moderator
 
 def get_unseen_urls_from_page(page_soup, url, seen_urls):
     """
@@ -134,24 +121,47 @@ def get_page_links(page_soup):
             rel_urls.append(href)
     return rel_urls
 
-def job_worker(queue, seen_urls):
+def job_worker(queue, seen_urls, page_fn):
     """
     Loop forever, taking jobs from the queue and executing them.
     """
     while True:
         url, depth_left = queue.get()
         try:
-            job(url, depth_left, queue, seen_urls)
+            job(url, depth_left, queue, seen_urls, page_fn)
         finally:
             queue.task_done()
   
-def spider(start_url, max_depth=1, no_of_workers=10):
+def check_page_for_profanities(page_soup, url):
+    """
+    In this example, the page is scanned for profanities.
+    """
+    # Strip out all tags, leaving only text
+    page_text = ''.join(page_soup.findAll(text=True))
+
+    bad_words = [word for word in PROFANITIES if word in page_text.lower()]
+    if bad_words:
+        cprint('%s found in %s' % (', '.join(bad_words), url), 'white', 'on_red')
+        # Extension: Add this to results list to email to moderator
+
+def spider(start_url, max_depth=1, no_of_workers=10, page_fn=check_page_for_profanities):
+    """
+    Concurrently spider the web, starting from web page, executing page_fn
+    on each page.
+
+    start_url specifies the document the spider starts from.
+    max_depth specifies the maximum link depth from the start_url that
+    processing will occur.
+    no_of_workers specifies how many concurrent workers process the job queue.
+    page_fn is a function that takes BeautifulSoup parsed html and a url and
+    processes them as required
+    """
     seen_urls = set((start_url,))
     job_queue = JoinableQueue()
     job_queue.put((start_url, max_depth))
 
     for i in range(no_of_workers):
-        gevent.spawn(job_worker, job_queue, seen_urls)
+        gevent.spawn(job_worker, job_queue, seen_urls, page_fn)
 
     job_queue.join()
 
