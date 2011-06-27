@@ -53,8 +53,6 @@ def fetch_and_process_url(url, depth_left):
     """
     Fetch a url, process it and return any urls in it.
     """
-    global seen_urls
-
     data = fetch_url(url)
     if data is None:
         return
@@ -63,15 +61,7 @@ def fetch_and_process_url(url, depth_left):
     process_page_soup(page_soup, url)
 
     if depth_left > 0:
-        rel_urls = get_page_links(page_soup)
-        unseen_urls = []
-
-        for rel_url in rel_urls:
-            abs_url = parse_rel_url(rel_url, url)
-            if abs_url not in seen_urls:
-                seen_urls.add(abs_url)
-                unseen_urls.append(abs_url)
-
+        unseen_urls = get_unseen_urls_from_page(page_soup, url)
         return unseen_urls
 
 def job(url, depth_left, queue):
@@ -118,6 +108,23 @@ def process_page_soup(page_soup, url):
     if bad_words:
         cprint('%s found in %s' % (', '.join(bad_words), url), 'white', 'on_red')
         # Extension: Add this to results list to email to moderator
+
+def get_unseen_urls_from_page(page_soup, url):
+    """
+    Given page_soup, finds all urls in it and returns any that have not been
+    seen before.
+    """
+    global seen_urls
+
+    rel_urls = get_page_links(page_soup)
+    unseen_urls = []
+
+    for rel_url in rel_urls:
+        abs_url = parse_rel_url(rel_url, url)
+        if abs_url not in seen_urls:
+            seen_urls.add(abs_url)
+            unseen_urls.append(abs_url)
+    return unseen_urls
 
 def get_page_links(page_soup):
     """
