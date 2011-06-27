@@ -51,7 +51,7 @@ NO_OF_WORKERS = 10
 
 def fetch_and_process_url(url, depth_left):
     """
-    Fetch a url, process it and add any urls in it to the job queue.
+    Fetch a url, process it and return any urls in it.
     """
     global seen_urls
 
@@ -75,6 +75,9 @@ def fetch_and_process_url(url, depth_left):
         return unseen_urls
 
 def job(url, depth_left, queue):
+    """
+    Handle fetching and processing of given url and add results to job queue.
+    """
     unseen_urls = fetch_and_process_url(url, depth_left)
     if unseen_urls is not None:
         for url in unseen_urls:
@@ -129,6 +132,9 @@ def get_page_links(page_soup):
     return rel_urls
 
 def job_worker(queue):
+    """
+    Loop forever, taking jobs from the queue and executing them.
+    """
     while True:
         url, depth_left = queue.get()
         try:
