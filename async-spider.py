@@ -49,7 +49,7 @@ MAX_DEPTH = 1
 NO_OF_WORKERS = 10
 
 
-def job(url, depth_left, queue):
+def fetch_and_process_url(url, depth_left):
     """
     Fetch a url, process it and add any urls in it to the job queue.
     """
@@ -64,13 +64,21 @@ def job(url, depth_left, queue):
 
     if depth_left > 0:
         rel_urls = get_page_links(page_soup)
+        unseen_urls = []
 
         for rel_url in rel_urls:
             abs_url = parse_rel_url(rel_url, url)
             if abs_url not in seen_urls:
                 seen_urls.add(abs_url)
-                queue.put((abs_url, depth_left-1))
+                unseen_urls.append(abs_url)
 
+        return unseen_urls
+
+def job(url, depth_left, queue):
+    unseen_urls = fetch_and_process_url(url, depth_left)
+    if unseen_urls is not None:
+        for url in unseen_urls:
+            queue.put((url, depth_left-1))
 
 def parse_rel_url(rel_url, url):
     """
