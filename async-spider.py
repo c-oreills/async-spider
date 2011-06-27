@@ -4,15 +4,14 @@ Asyncronous spider to fetch and process web pages, looking for profanities to
 make mailing list moderation easier.
 """
 
-from BeautifulSoup import BeautifulSoup
-from urlparse import urldefrag, urljoin, urlparse
-
-import gevent
 from gevent import monkey
-from gevent.queue import JoinableQueue
-
 monkey.patch_all()
 
+import gevent
+from gevent.queue import JoinableQueue
+
+from BeautifulSoup import BeautifulSoup
+from urlparse import urldefrag, urljoin, urlparse
 import urllib2
 
 # Optional colourful printing
